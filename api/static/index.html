@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraude explicable · Console d'analyse</title>
+<style>
+  :root{
+    --bg:#0b0912; --panel:#14111f; --panel2:#1b1729; --line:#2c2541; --text:#ece9f5; --muted:#9b93b3;
+    --purple:#8b5cf6; --purple2:#a78bfa; --red:#f43f5e; --amber:#f59e0b; --green:#10b981; --blue:#38bdf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    padding:16px 28px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#1a1030,#0b0912)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--purple),#4c1d95);
+    display:grid;place-items:center;font-size:20px}
+  .brand h1{font-size:18px;margin:0}.brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+  .status{display:flex;gap:10px;flex-wrap:wrap;font-size:12px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted)}
+  .pill b{color:var(--text)} .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--muted)}
+  .ok .dot{background:var(--green)} .ko .dot{background:var(--red)}
+  nav{display:flex;gap:4px;padding:12px 28px 0}
+  nav button{background:none;border:none;color:var(--muted);padding:10px 16px;font-size:14px;cursor:pointer;
+    border-bottom:2px solid transparent}
+  nav button.active{color:var(--text);border-color:var(--purple)}
+  main{padding:20px 28px 40px}
+  .grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:20px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .card h2{font-size:15px;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:9px 10px;font-size:14px;font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--purple);border-color:transparent}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  details{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}
+  summary{cursor:pointer;font-size:13px;color:var(--purple2)}
+  .btn{width:100%;margin-top:16px;padding:11px;border:none;border-radius:10px;font-size:14px;font-weight:600;
+    background:linear-gradient(90deg,var(--purple),#6d28d9);color:#fff;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:wait}
+  .btn.ghost{background:var(--panel2);border:1px solid var(--line);color:var(--text);font-weight:500}
+  .presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .presets button{flex:1;font-size:12px;padding:7px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--muted);cursor:pointer}
+  .presets button:hover{color:var(--text);border-color:var(--purple)}
+  .empty{color:var(--muted);text-align:center;padding:60px 10px;font-size:14px}
+  .verdict{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .gauge{position:relative;width:170px;height:95px;flex:none}
+  .gauge svg{width:100%;height:100%}
+  .gauge .val{position:absolute;bottom:0;width:100%;text-align:center;font-size:26px;font-weight:700}
+  .badge{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:700;font-size:13px;letter-spacing:.5px}
+  .b-high{background:rgba(244,63,94,.15);color:var(--red);border:1px solid var(--red)}
+  .b-mid{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber)}
+  .b-low{background:rgba(16,185,129,.15);color:var(--green);border:1px solid var(--green)}
+  .kv{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.7}.kv b{color:var(--text)}
+  .codes{margin-top:18px;display:flex;flex-direction:column;gap:8px}
+  .code{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;font-size:13px;
+    background:var(--panel2);padding:9px 12px;border-radius:9px;border-left:3px solid var(--red)}
+  .code .c{font-family:Consolas,monospace;color:var(--purple2);font-size:12px}
+  .code .w{text-align:right;color:var(--red);font-weight:600}
+  @media(max-width:600px){.code{grid-template-columns:1fr}.code .w{text-align:left}}
+  .shap{margin-top:8px}
+  .sh-row{display:grid;grid-template-columns:minmax(120px,230px) 1fr;gap:10px;align-items:center;font-size:12px;margin:5px 0}
+  .sh-row .n{color:var(--muted);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sh-track{position:relative;height:18px;background:var(--panel2);border-radius:4px}
+  .sh-mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+  .sh-bar{position:absolute;top:2px;bottom:2px;border-radius:3px}
+  .sh-lab{position:absolute;top:1px;font-size:11px;color:var(--text)}
+  .legend{font-size:12px;color:var(--muted);margin-top:8px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--muted);font-weight:500;position:sticky;top:0;background:var(--panel)}
+  tr.al td{background:rgba(244,63,94,.07)}
+  .scroll{max-height:460px;overflow:auto;margin-top:12px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat span{font-size:12px;color:var(--muted)}.stat div{font-size:22px;font-weight:700;margin-top:4px}
+  .err{background:rgba(244,63,94,.1);border:1px solid var(--red);color:#fecdd3;padding:10px 12px;border-radius:9px;font-size:13px;margin-top:12px}
+  .hidden{display:none}
+  pre{background:var(--panel2);padding:12px;border-radius:9px;overflow:auto;font-size:12px;color:#d8d2ee}
+  a{color:var(--purple2)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">🛡️</div>
+    <div><h1>Console d'analyse de fraude</h1><p>Score de risque · seuil coût-optimal · codes motifs SHAP</p></div>
+  </div>
+  <div class="status">
+    <span class="pill" id="st-api"><span class="dot"></span>API…</span>
+    <span class="pill">Modèle : <b id="st-model">—</b></span>
+    <span class="pill">Seuil : <b id="st-thr">—</b></span>
+    <span class="pill">Budget : <b id="st-k">—</b></span>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="single">Analyse d'une transaction</button>
+  <button data-tab="batch">Analyse par lot (CSV)</button>
+  <button data-tab="info">Modèle & API</button>
+</nav>
+
+<main>
+  <!-- ============ Transaction unique ============ -->
+  <section id="tab-single" class="grid">
+    <form class="card" id="f">
+      <h2>📝 Transaction</h2>
+      <div class="presets">
+        <button type="button" data-p="normal">Achat normal</button>
+        <button type="button" data-p="suspect">Suspecte</button>
+        <button type="button" data-p="test">Petit montant test</button>
+      </div>
+      <label>Numéro de carte (cc_num)</label><input name="cc_num" type="number" required value="4000000000000000">
+      <div class="row">
+        <div><label>Date / heure</label><input name="dt" type="datetime-local" required value="2020-06-20T23:30"></div>
+        <div><label>Montant ($)</label><input name="amt" type="number" step="0.01" min="0.01" required value="950"></div>
+      </div>
+      <label>Catégorie</label>
+      <select name="category"></select>
+      <details>
+        <summary>Profil porteur & localisation</summary>
+        <div class="row">
+          <div><label>Sexe</label><select name="gender"><option>F</option><option>M</option></select></div>
+          <div><label>Date de naissance</label><input name="dob" type="date" value="1980-01-01"></div>
+        </div>
+        <div class="row">
+          <div><label>Latitude client</label><input name="lat" type="number" step="any" value="40"></div>
+          <div><label>Longitude client</label><input name="long" type="number" step="any" value="-100"></div>
+        </div>
+        <div class="row">
+          <div><label>Latitude marchand</label><input name="merch_lat" type="number" step="any" value="40.5"></div>
+          <div><label>Longitude marchand</label><input name="merch_long" type="number" step="any" value="-100.5"></div>
+        </div>
+        <label>Population de la ville</label><input name="city_pop" type="number" min="1" value="5000">
+        <label><input type="checkbox" name="upd" style="width:auto"> Ajouter à l'historique de la carte</label>
+      </details>
+      <button class="btn" id="go" type="submit">Analyser la transaction</button>
+      <div id="err1" class="err hidden" role="alert"></div>
+    </form>
+
+    <div class="card" id="result" aria-live="polite">
+      <div class="empty" id="empty">Renseignez une transaction puis cliquez sur <b>Analyser</b>.<br>
+        Le score, la décision et les raisons de l'alerte s'afficheront ici.</div>
+      <div id="res" class="hidden">
+        <div class="verdict">
+          <div class="gauge">
+            <svg viewBox="0 0 200 110">
+              <path d="M15 100 A85 85 0 0 1 185 100" fill="none" stroke="#2c2541" stroke-width="18" stroke-linecap="round"/>
+              <path id="g-arc" d="M15 100 A85 85 0 0 1 185 100" fill="none" stroke="#8b5cf6" stroke-width="18"
+                    stroke-linecap="round" stroke-dasharray="267" stroke-dashoffset="267" style="transition:all .6s"/>
+              <line id="g-thr" x1="100" y1="100" x2="100" y2="8" stroke="#ece9f5" stroke-width="2" stroke-dasharray="4 3"/>
+            </svg>
+            <div class="val" id="g-val">0%</div>
+          </div>
+          <div>
+            <span class="badge" id="badge">—</span>
+            <div class="kv" id="kv"></div>
+          </div>
+        </div>
+        <h2 style="margin-top:22px">🚩 Codes motifs — pourquoi ce score ?</h2>
+        <div class="codes" id="codes"></div>
+        <h2 style="margin-top:22px">📊 Contributions SHAP (12 principales)</h2>
+        <div class="shap" id="shap"></div>
+        <div class="legend"><span style="color:var(--red)">■</span> pousse vers la fraude &nbsp;
+          <span style="color:var(--blue)">■</span> pousse vers le légitime · valeurs en log-odds</div>
+        <h2 style="margin-top:22px">🧮 Variables comportementales calculées</h2>
+        <table id="feat"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Lot ============ -->
+  <section id="tab-batch" class="hidden">
+    <div class="card">
+      <h2>📂 Analyse d'un fichier CSV</h2>
+      <p class="kv">Colonnes requises : <b>cc_num, trans_date_trans_time, amt, category</b>. Colonnes optionnelles :
+        gender, dob, lat, long, merch_lat, merch_long, city_pop, trans_num. Maximum 1000 lignes. Le format Sparkov est accepté tel quel.</p>
+      <div class="row">
+        <input type="file" id="csv" accept=".csv">
+        <button class="btn ghost" id="demo" type="button" style="margin-top:0">Charger un exemple</button>
+      </div>
+      <button class="btn" id="gob" type="button">Analyser le lot</button>
+      <div id="err2" class="err hidden" role="alert"></div>
+      <div id="bres" class="hidden" style="margin-top:18px" aria-live="polite">
+        <div class="stats" id="bstats"></div>
+        <div class="scroll"><table id="btab"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Infos ============ -->
+  <section id="tab-info" class="hidden">
+    <div class="grid">
+      <div class="card"><h2>🤖 Modèle déployé</h2><div id="minfo" class="kv">Chargement…</div></div>
+      <div class="card">
+        <h2>🔌 Points d'accès</h2>
+        <table>
+          <tr><th>Méthode</th><th>Route</th><th>Rôle</th></tr>
+          <tr><td>GET</td><td>/health</td><td>État du service</td></tr>
+          <tr><td>GET</td><td>/model/info</td><td>Modèle, seuil, budget</td></tr>
+          <tr><td>POST</td><td>/predict</td><td>Score + alerte + codes motifs</td></tr>
+          <tr><td>POST</td><td>/predict/batch</td><td>Scoring d'un lot</td></tr>
+          <tr><td>POST</td><td>/explain</td><td>Contributions SHAP complètes</td></tr>
+        </table>
+        <p class="kv">Documentation technique interactive : <a href="/docs" target="_blank">/docs</a> (Swagger) ·
+          <a href="/redoc" target="_blank">/redoc</a></p>
+        <pre>curl -X POST http://127.0.0.1:8000/predict -H "Content-Type: application/json" \
+ -d '{"transaction":{"cc_num":4000000000000000,
+      "trans_date_trans_time":"2020-06-20 23:30:00",
+      "amt":950,"category":"shopping_net"}}'</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const CATS = ["entertainment","food_dining","gas_transport","grocery_net","grocery_pos","health_fitness","home",
+    "kids_pets","misc_net","misc_pos","personal_care","shopping_net","shopping_pos","travel"];
+  const $ = s => document.querySelector(s);
+  const f = $("#f");
+  let THR = null;
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const num = (v, d = 2) => Number.isFinite(+v) ? (+v).toLocaleString("fr-FR", {maximumFractionDigits: d}) : "—";
+
+  f.category.innerHTML = CATS.map(c => `<option ${c === "shopping_net" ? "selected" : ""}>${c}</option>`).join("");
+
+  // ---------- onglets ----------
+  document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.toggle("active", x === b));
+    ["single", "batch", "info"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  }));
+
+  async function api(path, body) {
+    const r = await fetch(path, body ? {method: "POST", headers: {"Content-Type": "application/json"},
+                                        body: JSON.stringify(body)} : {});
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const d = data.detail;
+      throw new Error(Array.isArray(d) ? d.map(e => `${(e.loc || []).slice(-1)[0]} : ${e.msg}`).join(" · ")
+                                       : (d || `Erreur HTTP ${r.status}`));
+    }
+    return data;
+  }
+
+  // ---------- état / infos modèle ----------
+  async function loadInfo() {
+    try {
+      const h = await api("/health");
+      $("#st-api").className = "pill " + (h.modele_charge ? "ok" : "ko");
+      $("#st-api").innerHTML = `<span class="dot"></span>${h.modele_charge ? "API en ligne" : "Modèle non chargé"}`;
+      if (!h.modele_charge) { $("#minfo").textContent = "Lancez d'abord python train.py puis redémarrez l'API."; return; }
+      const m = await api("/model/info");
+      THR = m.threshold;
+      $("#st-model").textContent = m.model_name;
+      $("#st-thr").textContent = num(m.threshold, 4);
+      $("#st-k").textContent = `${m.budget.k_par_jour} alertes/jour`;
+      $("#minfo").innerHTML = `
+        Modèle : <b>${esc(m.model_name)}</b><br>Stratégie de déséquilibre : <b>${esc(m.strategy)}</b><br>
+        Seuil coût-optimal : <b>${num(m.threshold, 4)}</b><br>Coût d'analyse d'une alerte : <b>${num(m.review_cost)} $</b><br>
+        Budget : <b>${m.budget.k_par_jour} alertes/jour</b><br>Source : <b>${esc(m.source)}</b><br>
+        Entraîné le : <b>${esc(m.trained_at)}</b><br>Variables : <b>${m.features.length}</b>
+        <p>${esc(m.budget.justification)}</p>`;
+    } catch (e) {
+      $("#st-api").className = "pill ko"; $("#st-api").innerHTML = '<span class="dot"></span>API injoignable';
+    }
+  }
+
+  // ---------- préréglages ----------
+  const PRESETS = {
+    normal:  {dt: "2020-06-20T12:15", amt: 42.5, category: "grocery_pos"},
+    suspect: {dt: "2020-06-20T23:30", amt: 950, category: "shopping_net"},
+    test:    {dt: "2020-06-21T02:10", amt: 3.2, category: "misc_net"},
+  };
+  document.querySelectorAll("[data-p]").forEach(b => b.addEventListener("click", () => {
+    Object.entries(PRESETS[b.dataset.p]).forEach(([k, v]) => f[k].value = v);
+  }));
+
+  function readTx() {
+    const g = n => f[n].value.trim();
+    const cc = g("cc_num"), amt = parseFloat(g("amt"));
+    if (!/^\d{1,19}$/.test(cc)) throw new Error("Numéro de carte invalide (chiffres uniquement).");
+    if (!Number.isFinite(amt) || amt <= 0) throw new Error("Le montant doit être strictement positif.");
+    if (!g("dt")) throw new Error("Date / heure obligatoire.");
+    const fl = (n, def) => { const v = parseFloat(g(n)); return Number.isFinite(v) ? v : def; };
+    return {
+      cc_num: Number(cc), trans_date_trans_time: g("dt").replace("T", " ") + (g("dt").length === 16 ? ":00" : ""),
+      amt: Math.min(amt, 1e7), category: g("category"), gender: g("gender"), dob: g("dob") || "1980-01-01",
+      lat: Math.max(-90, Math.min(90, fl("lat", 40))), long: Math.max(-180, Math.min(180, fl("long", -100))),
+      merch_lat: Math.max(-90, Math.min(90, fl("merch_lat", 40.5))),
+      merch_long: Math.max(-180, Math.min(180, fl("merch_long", -100.5))),
+      city_pop: Math.max(1, Math.round(fl("city_pop", 5000))),
+    };
+  }
+
+  f.addEventListener("submit", async ev => {
+    ev.preventDefault();
+    const err = $("#err1"); err.classList.add("hidden");
+    const btn = $("#go"); btn.disabled = true; btn.textContent = "Analyse en cours…";
+    try {
+      const tx = readTx();
+      const [p, x] = await Promise.all([
+        api("/predict", {transaction: tx, update_history: f.upd.checked, n_reasons: 5}),
+        api("/explain", {transaction: tx}),
+      ]);
+      render(p, x);
+    } catch (e) { err.textContent = e.message; err.classList.remove("hidden"); }
+    finally { btn.disabled = false; btn.textContent = "Analyser la transaction"; }
+  });
+
+  function render(p, x) {
+    $("#empty").classList.add("hidden"); $("#res").classList.remove("hidden");
+    const s = Math.max(0, Math.min(1, p.score)), thr = Math.max(0, Math.min(1, p.seuil));
+    const col = p.alerte ? "#f43f5e" : p.niveau_risque === "MOYEN" ? "#f59e0b" : "#10b981";
+    const arc = $("#g-arc"); arc.style.strokeDashoffset = 267 * (1 - s); arc.style.stroke = col;
+    const a = Math.PI * (1 - thr);
+    $("#g-thr").setAttribute("x2", 100 + 92 * Math.cos(a)); $("#g-thr").setAttribute("y2", 100 - 92 * Math.sin(a));
+    $("#g-val").textContent = (s * 100).toFixed(1) + " %"; $("#g-val").style.color = col;
+    const b = $("#badge");
+    b.className = "badge " + (p.alerte ? "b-high" : p.niveau_risque === "MOYEN" ? "b-mid" : "b-low");
+    b.textContent = p.alerte ? "🚨 ALERTE — à examiner" : `Risque ${p.niveau_risque.toLowerCase()} — pas d'alerte`;
+    $("#kv").innerHTML = `Score : <b>${num(p.score, 4)}</b> · Seuil : <b>${num(p.seuil, 4)}</b><br>
+      Le trait pointillé sur la jauge marque le seuil coût-optimal.`;
+
+    $("#codes").innerHTML = p.codes_motifs.length ? p.codes_motifs.map(c => `
+      <div class="code"><span class="c">${esc(c.code)}</span><span>${esc(c.explication)}</span>
+      <span class="w">+${num(c.contribution_shap, 2)}</span></div>`).join("")
+      : '<div class="kv">Aucune variable ne pousse vers la fraude.</div>';
+
+    const top = x.contributions.slice(0, 12);
+    const max = Math.max(1e-9, ...top.map(c => Math.abs(c.shap)));
+    $("#shap").innerHTML = top.map(c => {
+      const w = Math.abs(c.shap) / max * 50, pos = c.shap >= 0;
+      return `<div class="sh-row"><span class="n" title="${esc(c.libellé)} = ${num(c.valeur, 3)}">
+        ${esc(c.libellé)} = ${num(c.valeur, 2)}</span>
+        <div class="sh-track"><div class="sh-mid"></div>
+          <div class="sh-bar" style="${pos ? "left:50%" : `left:${50 - w}%`};width:${w}%;background:${pos ? "var(--red)" : "var(--blue)"}"></div>
+          <span class="sh-lab" style="${pos ? `left:calc(${50 + w}% + 4px)` : `right:calc(${50 + w}% + 4px)`}">${c.shap >= 0 ? "+" : ""}${num(c.shap, 2)}</span>
+        </div></div>`;
+    }).join("");
+
+    const v = p.variables, L = [["n_tx_1h", "Transactions dans l'heure précédente", 0], ["n_tx_24h", "Transactions sur 24 h", 0],
+      ["amt_ratio_30d", "Montant / moyenne 30 jours", 2], ["hours_since_last", "Heures depuis la précédente", 1],
+      ["distance_km", "Distance client-marchand (km)", 0], ["age", "Âge du porteur", 0]];
+    $("#feat").innerHTML = L.map(([k, l, d]) => `<tr><td>${l}</td><td><b>${num(v[k], d)}</b></td></tr>`).join("");
+  }
+
+  // ---------- lot CSV ----------
+  let rows = null;
+  function parseCSV(text) {
+    const lines = text.replace(/\r/g, "").split("\n").filter(l => l.trim());
+    if (lines.length < 2) throw new Error("Le fichier est vide.");
+    const split = l => { const out = []; let cur = "", q = false;
+      for (const ch of l) { if (ch === '"') q = !q; else if (ch === "," && !q) { out.push(cur); cur = ""; } else cur += ch; }
+      out.push(cur); return out.map(s => s.trim()); };
+    const head = split(lines[0]);
+    for (const c of ["cc_num", "trans_date_trans_time", "amt", "category"])
+      if (!head.includes(c)) throw new Error(`Colonne manquante : ${c}`);
+    if (lines.length - 1 > 1000) throw new Error("Maximum 1000 lignes par lot.");
+    return lines.slice(1).map((l, i) => {
+      const r = Object.fromEntries(split(l).map((v, j) => [head[j], v]));
+      const t = {cc_num: Number(r.cc_num), trans_date_trans_time: r.trans_date_trans_time, amt: parseFloat(r.amt),
+                 category: r.category};
+      if (!Number.isFinite(t.cc_num) || !Number.isFinite(t.amt) || t.amt <= 0 || !CATS.includes(t.category))
+        throw new Error(`Ligne ${i + 2} invalide (cc_num, amt > 0 ou catégorie).`);
+      for (const k of ["lat", "long", "merch_lat", "merch_long"]) if (r[k] && Number.isFinite(+r[k])) t[k] = +r[k];
+      if (r.city_pop && Number.isFinite(+r.city_pop)) t.city_pop = Math.max(1, Math.round(+r.city_pop));
+      if (r.gender === "M" || r.gender === "F") t.gender = r.gender;
+      if (r.dob) t.dob = r.dob; if (r.trans_num) t.trans_num = r.trans_num;
+      return t;
+    });
+  }
+  $("#csv").addEventListener("change", async e => {
+    const err = $("#err2"); err.classList.add("hidden");
+    try { rows = parseCSV(await e.target.files[0].text()); }
+    catch (x) { rows = null; err.textContent = x.message; err.classList.remove("hidden"); }
+  });
+  $("#demo").addEventListener("click", () => {
+    rows = [
+      ["T001", "2020-06-20 12:10:00", 35.2, "grocery_pos"], ["T002", "2020-06-20 23:41:00", 1020, "shopping_net"],
+      ["T003", "2020-06-20 23:55:00", 870, "shopping_net"], ["T004", "2020-06-21 09:05:00", 18.4, "food_dining"],
+      ["T005", "2020-06-21 02:12:00", 4.1, "misc_net"], ["T006", "2020-06-21 18:30:00", 64, "gas_transport"],
+    ].map(([id, d, a, c]) => ({cc_num: 4000000000000000, trans_num: id, trans_date_trans_time: d, amt: a, category: c}));
+    $("#err2").classList.add("hidden");
+    $("#demo").textContent = "Exemple chargé (6 lignes) ✓";
+  });
+  $("#gob").addEventListener("click", async () => {
+    const err = $("#err2"); err.classList.add("hidden");
+    if (!rows || !rows.length) { err.textContent = "Choisissez un fichier CSV ou chargez l'exemple."; err.classList.remove("hidden"); return; }
+    const btn = $("#gob"); btn.disabled = true; btn.textContent = `Analyse de ${rows.length} transaction(s)…`;
+    try {
+      const r = await api("/predict/batch", {transactions: rows, n_reasons: 3});
+      const res = r.resultats.map((x, i) => ({...x, tx: rows[i]})).sort((a, b) => b.score - a.score);
+      const st = [["Transactions", r.n], ["Alertes", r.n_alertes],
+                  ["Taux d'alerte", r.n ? (r.n_alertes / r.n * 100).toFixed(1) + " %" : "—"],
+                  ["Montant en alerte", num(res.filter(x => x.alerte).reduce((s, x) => s + x.tx.amt, 0)) + " $"]];
+      $("#bstats").innerHTML = st.map(([l, v]) => `<div class="stat"><span>${l}</span><div>${v}</div></div>`).join("");
+      $("#btab").innerHTML = "<tr><th>#</th><th>Transaction</th><th>Date</th><th>Catégorie</th><th>Montant</th><th>Score</th><th>Décision</th><th>Motifs principaux</th></tr>" +
+        res.map((x, i) => `<tr class="${x.alerte ? "al" : ""}"><td>${i + 1}</td><td>${esc(x.tx.trans_num || "—")}</td>
+          <td>${esc(x.tx.trans_date_trans_time)}</td><td>${esc(x.tx.category)}</td><td>${num(x.tx.amt)} $</td>
+          <td><b>${num(x.score, 4)}</b></td>
+          <td><span class="badge ${x.alerte ? "b-high" : x.niveau_risque === "MOYEN" ? "b-mid" : "b-low"}">${x.alerte ? "ALERTE" : esc(x.niveau_risque)}</span></td>
+          <td>${x.codes_motifs.map(c => `<span class="c" style="font-family:Consolas,monospace;color:var(--purple2)">${esc(c.code)}</span>`).join(", ")}</td></tr>`).join("");
+      $("#bres").classList.remove("hidden");
+    } catch (e) { err.textContent = e.message; err.classList.remove("hidden"); }
+    finally { btn.disabled = false; btn.textContent = "Analyser le lot"; }
+  });
+
+  loadInfo();
+})();
+</script>
+</body>
+</html>
